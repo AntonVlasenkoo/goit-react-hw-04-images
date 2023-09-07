@@ -1,94 +1,86 @@
-import React, { Component } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { Searchbar } from './Searchbar/Searchbar';
 import { ImageGallery } from './ImageGallery/ImageGallery';
 import { ImageGalleryItem } from './ImageGalleryItem/ImageGalleryItem';
+
 import { fetchImg } from './ApiService/ApiService';
 import { Loader } from './Loader/Loader';
 import { Button } from './Button/Button';
 import { Modal } from './Modal/Modal';
 import css from './App.module.css';
 
-export class App extends Component {
-  state = {
-    searchQuery: '',
-    images: [],
-    totalImg: '',
-    page: null,
-    isLoading: false,
-    showModal: false,
-    modalImg: null,
-    error: null,
-  };
+export function App() {
+  const [query, setQuery] = useState('');
+  const [images, setImages] = useState([]);
+  const [totalImg, setTotalImg] = useState('');
+  const [page, setPage] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [modalImg, setModalImg] = useState(null);
+  const [error, setError] = useState(null);
 
-  componentDidUpdate(_, prevState) {
-    const prevQuery = prevState.searchQuery;
-    const nextQuery = this.state.searchQuery;
-    const prevPage = prevState.page;
-    const nextPage = this.state.page;
-
-    if (prevQuery !== nextQuery || prevPage !== nextPage) {
-      this.setState({ isLoading: true });
-      fetchImg(nextQuery, nextPage)
-        .then(data =>
-          this.setState(({ images }) => ({
-            images: [...images, ...data.hits],
-            totalImg: data.totalHits,
-            isLoading: false,
-          }))
-        )
-        .catch(error => this.setState({ error }));
+  useEffect(() => {
+    if (!query) {
+      return;
     }
-  }
+    setIsLoading(true);
 
-  handleSubmit = query => {
-    this.setState({ searchQuery: query, page: 1, images: [] });
+    async function fetchImages() {
+      try {
+        const data = await fetchImg(query, page);
+        setImages(prewImages => [...prewImages, ...data.hits]);
+        setTotalImg(data.totalHits);
+
+        setIsLoading(false);
+      } catch (error) {
+        setError(error);
+      }
+    }
+    fetchImages();
+  }, [query, page]);
+
+  const onSubmit = searchQuery => {
+    setQuery(searchQuery);
+    setPage(1);
+    setImages([]);
   };
 
-  incrementPage = () => {
-    this.setState(prevState => ({
-      page: prevState.page + 1,
-    }));
+  const incrementPage = () => {
+    setPage(prevPage => prevPage + 1);
   };
 
-  setModalImg = imgUrl => {
-    this.setState({ modalImg: imgUrl });
+  const openModal = event => {
+    event.preventDefault();
+    setShowModal(true);
+    setModalImg(event.target);
   };
 
-  toggleModal = () => {
-    this.setState(({ showModal }) => ({ showModal: !showModal }));
+  const closeModal = () => {
+    setShowModal(false);
   };
 
-  render() {
-    const { images, isLoading, totalImg, showModal, modalImg, error } =
-      this.state;
-    const showMoreButton = totalImg > images.length;
+  const showMoreButton = totalImg > images.length;
 
-    return (
-      <div className={css.App}>
-        <Searchbar onSubmit={this.handleSubmit} />
-        {images.length > 0 && (
-          <ImageGallery>
-            {images.map(image => (
-              <ImageGalleryItem
-                key={image.id}
-                img={image}
-                setModalImg={this.setModalImg}
-                toggleModal={this.toggleModal}
-              />
-            ))}
-          </ImageGallery>
-        )}
+  return (
+    <div className={css.App}>
+      <Searchbar onSubmit={onSubmit} />
+      {images.length > 0 && (
+        <ImageGallery onClick={openModal}>
+          {images.map(image => (
+            <ImageGalleryItem key={image.id} img={image} />
+          ))}
+        </ImageGallery>
+      )}
 
-        {isLoading && <Loader />}
-        {showMoreButton && <Button incrementPage={this.incrementPage} />}
-        {showModal && (
-          <Modal onClose={this.toggleModal}>
-            <img src={modalImg} alt="#" />
-          </Modal>
-        )}
-        {error && <h2>No results found</h2>}
-      </div>
-    );
-  }
+      {isLoading && <Loader />}
+      {showMoreButton && <Button incrementPage={incrementPage} />}
+      {showModal && (
+        <Modal onClose={closeModal}>
+          <img src={modalImg.src} alt="#" />
+        </Modal>
+      )}
+      {error && <h2>No results found</h2>}
+    </div>
+  );
 }
